@@ -18,7 +18,7 @@ import objc
 from Foundation import NSURL, NSData
 
 CLAUDE_BIN = "/Users/vivaandey/.local/bin/claude"
-VOICE = "Samantha"   # macOS voice — change to "Daniel" (British) or "Karen" (Aussie) if preferred
+VOICE = "Daniel"     # macOS voice — change to "Samantha", "Alex", or "Karen" (Aussie)
 SPEECH_RATE = 175    # words per minute
 
 
@@ -69,25 +69,26 @@ def ask_claude(text: str) -> str:
     if not text.strip():
         return "I couldn't read anything on the screen. Try again."
 
-    prompt = f"""You are Vivaan's voice assistant. He just double-clapped and wants you to explain what's on his screen.
+    prompt = f"""You are JARVIS — Vivaan's AI assistant. British, precise, confident. Think Tony Stark's JARVIS.
 
-Here's what's currently on his screen (extracted via OCR):
+Vivaan just double-clapped. Here's what's on his screen right now (extracted via OCR):
 
 ---
 {text[:3000]}
 ---
 
-Explain this in plain, conversational spoken English — like a smart friend reading over his shoulder.
+Brief him on what's happening.
 
 Rules:
-- Speak naturally — this will be read aloud by macOS say command
-- If it's code output or terminal: explain what ran and what the result means
-- If there's an error: say what went wrong and the quickest fix
-- If it's Claude Code conversation: summarize what's happening
-- Keep it 2-4 sentences max — concise but complete
-- No markdown, no bullet points, no asterisks — pure speech
-- Start casually: "Looks like...", "So you've got...", "Your screen shows...", "Alright so..."
-- If the screen looks empty or unreadable, say so honestly"""
+- Call him "sir" or "Vivaan" — never casual slang
+- If it's code/terminal: state what ran and the result clearly
+- If there's an error: name it and give the fix in one sentence
+- If it's a conversation or document: summarize the key point
+- 2-4 sentences max — spoken aloud by macOS say
+- No markdown, no bullets, no asterisks — pure speech only
+- Lead with the most important thing first
+- Dry, intelligent tone — not robotic, not cheerful
+- If screen is empty or unreadable, say so directly"""
 
     result = subprocess.run(
         [CLAUDE_BIN, "--print", "--no-session-persistence", prompt],
