@@ -157,24 +157,51 @@ def build_context() -> str:
 IDENTITY RULES:
 - Call him "sir" or "Vivaan" — never casual slang
 - Answer directly in spoken English — no markdown, no bullets, no asterisks
-- Never say "I'll open a tab for that" or "let me search the web" — YOU are the agent, answer yourself
-- For world events / news: answer from your knowledge or the live news headlines provided
-- 2-4 sentences unless a longer answer is clearly needed
-- Lead with the most important thing. Be decisive.
+- Never redirect — YOU handle it. Never say "you should open X yourself"
+- 2-4 sentences for answers unless detail is clearly needed
+- Be decisive. Pick the best tool, don't list options.
 
 VIVAAN'S CONTEXT:
 - Date: {date.today().strftime('%B %d, %Y')}, {tod}
-- BMW Goal: rupees 50 lakhs by March 9, 2027 — {days_left} days left, rupees {daily_target:,.0f} per day needed
-- Business: DEY Marketing — ad agency and web dev
-- Active agents: Arya (web designer, trigger: "Arya,"), Rohan (Meta ads, trigger: "Rohan,")
+- BMW Goal: rupees 50 lakhs by March 9, 2027 — {days_left} days left, rupees {daily_target:,.0f}/day needed
+- Business: DEY Marketing — ad agency + web dev. Clients pay rupees 15K-35K/month
+- Agents: Arya (web designer), Rohan (Meta ads strategist)
 
 TODAY'S LOG:
 {today_log}
 
-AVAILABLE SKILLS (what you can instruct or coordinate):
-{skills}
+VIVAAN'S APP TOOLKIT (installed and used regularly):
+- Code/Dev: VS Code, Terminal, Claude Code (claude CLI)
+- Design: Figma, Canva
+- Browser: Google Chrome, Safari
+- Productivity: Notion, Notes, Calendar, Reminders
+- Communication: WhatsApp, Slack, Gmail (via Chrome)
+- Media: Spotify, YouTube (via Chrome), QuickTime Player
+- Video editing: iMovie, CapCut (if installed)
+- Meetings: Zoom, FaceTime, Google Meet (via Chrome)
+- Finance: Numbers, Excel (if installed)
+- Social/Ads: Meta Ads Manager (via Chrome → facebook.com/adsmanager)
+- Files: Finder, Downloads, Desktop
+- Other: Preview (images/PDFs), TextEdit, Activity Monitor
 
-TASK EXECUTION: When Vivaan says he needs a task done in Claude Code, open VS Code, open Claude in terminal, and type the task automatically.
+SMART APP SELECTION GUIDE (use this intelligence):
+- Writing code / building websites → VS Code + Terminal + Claude Code
+- Designing visuals / logo / UI → Figma or Canva
+- Running Meta ads / Facebook ads → Chrome → facebook.com/adsmanager
+- Client proposal / document → Notion or Notes
+- Video call / meeting → Zoom or Google Meet
+- Music / focus → Spotify
+- Quick note → Notes app
+- Spreadsheet / numbers → Numbers
+- Edit image → Preview or Figma
+- Edit video → iMovie or CapCut
+- Checking emails → Chrome → gmail.com
+- Managing calendar / schedule → Calendar app
+- Checking files → Finder
+- Marketing task needing Claude → VS Code + Claude Code terminal
+
+AVAILABLE SKILLS:
+{skills}
 """
 
 
@@ -267,6 +294,20 @@ def execute_action(action: dict) -> str:
                 return str(p)  # fall back to Claude's own answer
             return _narrate_news(headlines)
 
+        elif t == "sequence":
+            # Chain multiple actions: payload = list of action dicts
+            steps = p if isinstance(p, list) else []
+            confirm = action.get("confirm", "Done, sir.")
+            for step in steps:
+                try:
+                    delay = step.pop("delay", 0)
+                    if delay:
+                        time.sleep(delay)
+                    execute_action(step)
+                except Exception as se:
+                    log(f"Sequence step error: {se}")
+            return confirm
+
         elif t == "answer":
             return str(p)
 
@@ -329,8 +370,10 @@ Headlines:
 # ─── Claude Interpreter ───────────────────────────────────────
 
 def interpret_command(command: str) -> dict:
-    context   = build_context()
-    has_news  = any(w in command for w in ["news", "world", "happening", "today", "latest", "headlines", "current events"])
+    context      = build_context()
+    days_left    = (BMW_DEADLINE - date.today()).days
+    daily_target = BMW_TARGET / max(days_left, 1)
+    has_news     = any(w in command for w in ["news", "world", "happening", "today", "latest", "headlines", "current events"])
 
     news_hint = ""
     if has_news:
@@ -342,43 +385,106 @@ def interpret_command(command: str) -> dict:
 
 Voice command from Vivaan: "{command}"
 
-Return ONLY a single valid JSON object. No explanation. No markdown. Just JSON.
+Return ONLY a single valid JSON object. No explanation. No markdown. Just the JSON.
 
-Action types:
-- open_app        payload = app name string
-- open_url        payload = full URL
-- web_search      payload = search query (only if user explicitly wants to browse)
-- youtube_search  payload = search query
-- open_folder     payload = path (~/ supported)
-- open_file       payload = file path
-- volume_set      payload = number 0-100
-- volume_up       payload = null
-- volume_down     payload = null
-- mute            payload = null
-- screenshot      payload = null
-- lock            payload = null
-- terminal_command payload = shell command string
-- execute_task    payload = task description to type into Claude Code
-- news            payload = your own answer if live headlines not enough
-- answer          payload = your spoken response as JARVIS (2-4 sentences, no markdown)
+━━━ ACTION TYPES ━━━
 
-CRITICAL RULES:
-- For ANY question about world events, news, current events → use "news" type
-- For task execution requests ("do this", "build this", "code this") → use "execute_task"
-- For questions about Vivaan's goals, projects, BMW, daily log → use "answer" with full context
-- Only use web_search if user explicitly says "Google this" or "search for"
-- NEVER tell the user to open a browser themselves
+Single actions:
+  open_app         payload = exact macOS app name string (e.g. "Spotify", "Figma", "Google Chrome")
+  open_url         payload = full URL string
+  web_search       payload = search query string
+  youtube_search   payload = search query string
+  open_folder      payload = path string (~/ supported)
+  volume_up        payload = null
+  volume_down      payload = null
+  volume_set       payload = integer 0-100
+  mute             payload = null
+  screenshot       payload = null
+  lock             payload = null
+  terminal_command payload = shell command string
+  execute_task     payload = full task description to send to Claude Code
+  news             payload = fallback answer string
+  answer           payload = JARVIS spoken response string (no markdown, 2-4 sentences)
 
-Examples:
-"open spotify"                         → {{"type":"open_app","payload":"Spotify"}}
-"what's happening in the world"        → {{"type":"news","payload":"Here is today's top news..."}}
-"build me a landing page for my client" → {{"type":"execute_task","payload":"Build a landing page for my client. Use Arya design system. Ask me for the client details."}}
-"turn volume down"                     → {{"type":"volume_down","payload":null}}
-"how many days till my BMW"            → {{"type":"answer","payload":"You have X days remaining, sir. You need rupees Y per day to stay on track."}}
-"run npm install"                      → {{"type":"terminal_command","payload":"npm install"}}
-"what is AI"                           → {{"type":"answer","payload":"AI stands for..."}}
+Multi-step sequence (use when task needs multiple apps or steps):
+  sequence   payload = array of action objects (each has "type" and "payload")
+             confirm = spoken confirmation string (what JARVIS says after sequence fires)
+             Add "delay": seconds between steps where needed
 
-Now parse: "{command}"
+━━━ INTELLIGENCE RULES ━━━
+
+Think like Tony Stark's JARVIS — understand the REAL need, pick the SMARTEST tool:
+
+1. CODING / BUILDING / DEV TASK → sequence: open VS Code + open Terminal with claude
+   Example: "I need to build a website" or "code something" or "fix this bug"
+
+2. DESIGN TASK (logo, UI, mockup, brand) → open Figma
+   Example: "design a logo" / "create a UI" / "make a mockup"
+
+3. AD CREATIVE / CANVA → open Canva (via Chrome URL)
+   Example: "make an ad creative" / "design a post"
+
+4. META ADS / FACEBOOK ADS → open Chrome to facebook.com/adsmanager
+   Example: "open Meta ads" / "check my campaigns" / "run an ad"
+
+5. MARKETING / CAMPAIGN TASK needing strategy → execute_task (Claude Code with Rohan context)
+   Example: "plan my ad campaign" / "write ad copy" / "build a campaign"
+
+6. CLIENT MEETING / CALL → open Zoom or Google Meet via Chrome
+   Example: "start a meeting" / "join a call"
+
+7. MUSIC / FOCUS → open Spotify
+   Example: "play music" / "put on some music" / "open spotify"
+
+8. EMAIL → open Chrome to gmail.com
+   Example: "check my email" / "open gmail"
+
+9. NOTE / WRITE SOMETHING → open Notion or Notes
+   Example: "take a note" / "write this down" / "open notion"
+
+10. NEWS / WORLD EVENTS → use "news" type (JARVIS narrates, never opens browser)
+
+11. OPEN APP BY NAME → use open_app with exact app name
+
+12. SYSTEM CONTROL → volume / screenshot / lock
+
+━━━ EXAMPLES ━━━
+
+"I need to build a landing page" →
+{{"type":"sequence","payload":[{{"type":"open_app","payload":"Visual Studio Code"}},{{"type":"terminal_command","payload":"claude","delay":2}}],"confirm":"Opening VS Code and Claude Code for you, sir. Ready to build."}}
+
+"I have a design task, need to make a logo" →
+{{"type":"open_app","payload":"Figma"}}
+
+"play some music" →
+{{"type":"open_app","payload":"Spotify"}}
+
+"open my Meta ads" →
+{{"type":"open_url","payload":"https://www.facebook.com/adsmanager"}}
+
+"I need to plan a campaign for my client" →
+{{"type":"execute_task","payload":"Plan a full Meta ads campaign for my client. Use the 6-step system. Ask me for the product details."}}
+
+"what's happening in the world" →
+{{"type":"news","payload":"Here is what I know, sir..."}}
+
+"take a screenshot" →
+{{"type":"screenshot","payload":null}}
+
+"how many days to my BMW" →
+{{"type":"answer","payload":"You have {days_left} days remaining, sir. You need rupees {daily_target:,.0f} per day to hit your target."}}
+
+"I need to write a proposal for a client" →
+{{"type":"open_app","payload":"Notion"}}
+
+"join a zoom call" →
+{{"type":"open_app","payload":"Zoom"}}
+
+"check my email" →
+{{"type":"open_url","payload":"https://mail.google.com"}}
+
+Now parse this command and return the smartest possible action:
+"{command}"
 """
 
     result = subprocess.run(
